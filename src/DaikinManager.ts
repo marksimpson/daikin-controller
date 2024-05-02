@@ -2,11 +2,18 @@ import { DaikinAC } from './DaikinAC';
 import { DaikinACOptions, Logger } from './DaikinACRequest';
 import { DaikinDiscovery } from './DaikinDiscovery';
 
+export interface DeviceInfo {
+    name: string;
+    ipAddress: string;
+    controllerKey?: string;
+}
+
 export interface DaikinManagerOptions {
     addDevicesByDiscovery?: boolean;
     deviceDiscoveryWaitCount?: number;
     // Name can be chosen individually, value should be the device IP e.g. 192.168.0.100
     deviceList?: { [name: string]: string };
+    deviceInfoList?: DeviceInfo[];
     logger?: Logger;
     useGetToPost?: boolean;
     logInitialDeviceConnection: boolean;
@@ -23,20 +30,35 @@ export class DaikinManager {
         this.managerOptions = options;
         if (options.addDevicesByDiscovery) {
             this.startDiscovery(options.deviceDiscoveryWaitCount ?? 2);
-        } else if (options.deviceList !== undefined) {
-            this.addDevices(options.deviceList, options.logInitialDeviceConnection);
         } else {
-            throw new Error('Created without providing device List or allowing Auto Discover');
+            if (options.deviceList && options.deviceInfoList) {
+                throw new Error('Specify one or none of deviceList and deviceInfoList');
+            }
+
+            let deviceInfoList: DeviceInfo[];
+            if (options.deviceList) {
+                var deviceList: { [name: string]: string } = options.deviceList;
+                deviceInfoList = Object.keys(deviceList).map((name) => {
+                    return { name: name, ipAddress: deviceList[name] };
+                });
+            } else if (options.deviceInfoList) {
+                deviceInfoList = options.deviceInfoList;
+            } else {
+                throw new Error('Created without providing device List or allowing Auto Discover');
+            }
+
+            this.addDevices(deviceInfoList, options.logInitialDeviceConnection);
         }
     }
 
-    private addDevices(devices: { [name: string]: string }, logInitialDeviceConnection: boolean = false): void {
-        const expectedAmount: number = Object.keys(devices).length;
+    private addDevices(devices: DeviceInfo[], logInitialDeviceConnection: boolean = false): void {
+        const expectedAmount: number = devices.length;
         let connectedAmount: number = 0;
         let triedAmmount: number = 0;
-        for (const key in devices) {
-            const ip = devices[key];
-            this.devices[key] = new DaikinAC(ip, this.daikinAcOptions, (err, res) => {
+        for (const deviceInfo of devices) {
+            const ip = deviceInfo.ipAddress;
+            const name = deviceInfo.name;
+            this.devices[name] = new DaikinAC(deviceInfo, this.daikinAcOptions, (err, res) => {
                 if (err === null) connectedAmount++;
                 if (++triedAmmount == expectedAmount) {
                     this.managerOptions.initializeCB?.(
@@ -47,10 +69,10 @@ export class DaikinManager {
                 }
                 if (logInitialDeviceConnection) {
                     if (err !== null) {
-                        console.log(`Initial connection to "${key}" at address "${ip}" failed: ${err}`);
+                        console.log(`Initial connection to "${name}" at address "${ip}" failed: ${err}`);
                     } else {
                         console.log(
-                            `Initial connection to "${key}" at address "${ip}" succeeded: ${JSON.stringify(res)}`,
+                            `Initial connection to "${name}" at address "${ip}" succeeded: ${JSON.stringify(res)}`,
                         );
                     }
                 }

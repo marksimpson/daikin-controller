@@ -12,6 +12,7 @@ import {
     YearPowerResponse,
 } from './models';
 import { DaikinACOptions, DaikinACRequest, Logger } from './DaikinACRequest';
+import { DeviceInfo } from './DaikinManager';
 
 export * from './DaikinACTypes';
 
@@ -54,12 +55,26 @@ export class DaikinAC {
     private _updateCallback: null | updateErrorCallback = null;
     private _currentCommonBasicInfo: null | BasicInfoResponse = null;
     private _updateTimeout: NodeJS.Timeout | null = null;
-    public constructor(ip: string, options: DaikinACOptions, callback: defaultCallback<ModelInfoResponse>) {
+
+    public constructor(
+        device: string | DeviceInfo,
+        options: DaikinACOptions,
+        callback: defaultCallback<ModelInfoResponse>,
+    ) {
         this._logger = null;
         if (options.logger) {
-            this._logger = options.logger;
+            const logger = options.logger;
+            this._logger = (s) => {
+                let name;
+                if (typeof device === 'string') {
+                    name = device;
+                } else {
+                    name = device.name;
+                }
+                logger(name + ': ' + s);
+            };
         }
-        this._daikinRequest = new DaikinACRequest(ip, options);
+        this._daikinRequest = new DaikinACRequest(device, options);
         this.getCommonBasicInfo((err, _info) => {
             if (err) {
                 if (callback) callback(err, null);
@@ -68,6 +83,7 @@ export class DaikinAC {
             this.getACModelInfo(callback);
         });
     }
+
     public setRequestLogger(value: Logger | null) {
         this._daikinRequest.logger = value;
     }

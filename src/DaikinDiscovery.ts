@@ -1,7 +1,8 @@
 import { createSocket, Socket } from 'dgram';
+import { DeviceInfo } from './DaikinManager';
 
 // Change this to true to output debugging logs to the console
-const debug = false;
+const debug = true;
 
 export class DaikinDiscovery {
     private readonly listenAddress: string = '0.0.0.0';
@@ -12,11 +13,11 @@ export class DaikinDiscovery {
     private readonly probeInterval: number = 500;
     private readonly probeData: Buffer = Buffer.from('DAIKIN_UDP/common/basic_info');
     private probeTimeout: NodeJS.Timeout | null = null;
-    private discoveredDevices: { [address: string]: string } = {};
+    private discoveredDevices: DeviceInfo[] = [];
     private udpSocket: Socket;
-    private readonly callback: (devices: { [p: string]: string }) => void;
+    private readonly callback: (devices: DeviceInfo[]) => void;
 
-    public constructor(waitForCount: number, callback: (devices: { [address: string]: string }) => void) {
+    public constructor(waitForCount: number, callback: (devices: DeviceInfo[]) => void) {
         this.callback = callback;
         // TODO: Which parameterrs are really needed
         // TODO: Also initialize DaicinAC instances?
@@ -35,7 +36,7 @@ export class DaikinDiscovery {
         this.udpSocket.on('message', (message, remote) => {
             this.log(`${remote.address}:${remote.port} - ${message}`);
             // this.discoveredDevices[remote.address] = message.toString();
-            this.discoveredDevices[remote.address] = remote.address;
+            this.discoveredDevices.push({ ipAddress: remote.address, name: remote.address });
             if (Object.keys(this.discoveredDevices).length >= waitForCount) {
                 this.finalizeDiscovery();
             }

@@ -13,6 +13,10 @@ import {
 } from './models';
 import { SetCommandResponse, SetSpecialModeRequest } from './models';
 import { SpecialModeKind } from './DaikinACTypes';
+import { DeviceInfo } from './DaikinManager';
+import axios from 'axios';
+import { Agent } from 'https';
+import * as crypto from 'crypto';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const RestClient = require('node-rest-client').Client;
@@ -43,18 +47,30 @@ export class DaikinACRequest {
     private _logger: Logger | null = null;
     private defaultParameters: { [key: string]: any } = {};
     private readonly useGetToPost: boolean = false;
+    private readonly useHttps: boolean = false;
+    private readonly controllerKey?: string;
+    private daikinUuid?: string;
     private readonly ip: string;
     private restClient: any;
 
-    public constructor(ip: string, options: DaikinACOptions) {
-        this.ip = ip;
+    public constructor(device: string | DeviceInfo, options: DaikinACOptions) {
+        if (typeof device === 'string') {
+            this.ip = device;
+        } else {
+            this.ip = device.ipAddress;
+            this.controllerKey = device.controllerKey;
+
+            this.useHttps = this.controllerKey !== undefined;
+        }
+
         if (options.logger !== undefined) {
             this.logger = options.logger;
         }
         if (options.useGetToPost) {
             this.useGetToPost = true;
         }
-        this.restClient = new RestClient();
+
+        this.restClient = new RestClient({ connection: { rejectUnauthorized: false } });
     }
 
     public addDefaultParameter(key: string, value: any) {
@@ -62,6 +78,21 @@ export class DaikinACRequest {
     }
 
     public doGet(url: string, parameters: RequestDict, callback: ResponseHandler) {
+        if (this.useHttps && this.controllerKey && !this.daikinUuid) {
+            this.daikinUuid = 'e18ccc1d-0f56-44fa-8f24-438e1f528546'.replaceAll('-', '');
+            // this.daikinUuid = crypto.randomUUID().replaceAll('-', '');
+
+            this.doGet(`${this.ip}/common/register_terminal`, { key: this.controllerKey }, (data, _res) => {
+                console.log(data);
+
+                this._doGet(url, parameters, callback);
+            });
+        } else {
+            this._doGet(url, parameters, callback);
+        }
+    }
+
+    private _doGet(url: string, parameters: RequestDict, callback: ResponseHandler) {
         const reqParams = Object.assign({}, this.defaultParameters, parameters);
 
         const data: any = {
@@ -83,32 +114,67 @@ export class DaikinACRequest {
                 timeout: 5000, //response timeout
             },
         };
+
+        url = url.replace('http://', '');
+
+        if (this.useHttps) {
+            data.headers['X-Daikin-uuid'] = this.daikinUuid;
+            url = `https://${url}`;
+        } else {
+            url = `http://${url}`;
+        }
+
         if (this.logger) this.logger(`Call GET ${url} with ${JSON.stringify(reqParams)}`);
-        const req = this.restClient.get(url, data, callback);
 
-        req.on('requestTimeout', (req: XMLHttpRequest) => {
-            if (this.logger) this.logger('request timeout');
-            req.abort();
-            callback(new Error(`Error while communicating with Daikin device: Timeout`));
+        const client = axios.create({
+            httpsAgent: new Agent({
+                keepAlive: data.requestConfig.keepAlive,
+
+                rejectUnauthorized: false,
+                secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
+            }),
         });
 
-        req.on('responseTimeout', (_res: any) => {
-            if (this.logger) this.logger('response timeout');
-        });
+        client
+            .request({
+                method: 'GET',
+                url: url,
+                params: data.parameters,
+                headers: data.headers,
+                timeout: data.requestConfig.timeout,
+            })
+            .then((res) => {
+                callback(res.data, res);
+            })
+            .catch((e) => {
+                callback(e);
+            });
 
-        req.on('error', (err: any) => {
-            let errMessage: string;
-            if (err.code) {
-                errMessage = err.code;
-            } else if (err.message) {
-                errMessage = err.message;
-            } else {
-                errMessage = err.toString();
-            }
-            err.message = `Error while communicating with Daikin device: ${errMessage}`;
+        // const req = this.restClient.get(url, data, callback);
 
-            callback(err);
-        });
+        // req.on('requestTimeout', (req: XMLHttpRequest) => {
+        //     if (this.logger) this.logger('request timeout');
+        //     req.abort();
+        //     callback(new Error(`Error while communicating with Daikin device: Timeout`));
+        // });
+
+        // req.on('responseTimeout', (_res: any) => {
+        //     if (this.logger) this.logger('response timeout');
+        // });
+
+        // req.on('error', (err: any) => {
+        //     let errMessage: string;
+        //     if (err.code) {
+        //         errMessage = err.code;
+        //     } else if (err.message) {
+        //         errMessage = err.message;
+        //     } else {
+        //         errMessage = err.toString();
+        //     }
+        //     err.message = `Error while communicating with Daikin device: ${errMessage}`;
+
+        //     callback(err);
+        // });
     }
 
     public doPost(url: string, parameters: { [key: string]: any }, callback: ResponseHandler) {
@@ -172,28 +238,28 @@ export class DaikinACRequest {
             obj = new SetSpecialModeRequest(state, obj.kind);
         }
         const requestDict = obj.getRequestDict();
-        this.doPost(`http://${this.ip}/aircon/set_special_mode`, requestDict, (data, _res) => {
+        this.doPost(`${this.ip}/aircon/set_special_mode`, requestDict, (data, _res) => {
             const dict = DaikinDataParser.processResponse(data, callback, requestDict);
             if (dict !== null) SetCommandResponse.parseResponse(dict, callback);
         });
     }
 
     public getACYearPowerExtended(callback: DaikinResponseCb<YearPowerExtendedResponse>) {
-        this.doGet(`http://${this.ip}/aircon/get_year_power_ex`, {}, (data, _res) => {
+        this.doGet(`${this.ip}/aircon/get_year_power_ex`, {}, (data, _res) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) YearPowerExtendedResponse.parseResponse(dict, callback);
         });
     }
 
     public getCommonBasicInfo(callback: DaikinResponseCb<BasicInfoResponse>) {
-        this.doGet(`http://${this.ip}/common/basic_info`, {}, (data, _response) => {
+        this.doGet(`${this.ip}/common/basic_info`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) BasicInfoResponse.parseResponse(dict, callback);
         });
     }
 
     public getCommonRemoteMethod(callback: DaikinResponseCb<RemoteMethodResponse>) {
-        this.doGet(`http://${this.ip}/aircon/get_remote_method`, {}, (data, _response) => {
+        this.doGet(`${this.ip}/aircon/get_remote_method`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) RemoteMethodResponse.parseResponse(dict, callback);
         });
@@ -201,28 +267,28 @@ export class DaikinACRequest {
 
     public setCommonLED(ledOn: boolean, callback: DaikinResponseCb<SetCommandResponse>) {
         const requestDict = { led: ledOn ? 1 : 0 };
-        this.doPost(`http://${this.ip}/common/set_led`, requestDict, (data, _response) => {
+        this.doPost(`${this.ip}/common/set_led`, requestDict, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback, requestDict);
             if (dict !== null) SetCommandResponse.parseResponse(dict, callback);
         });
     }
 
     public rebootAdapter(callback: DaikinResponseCb<SetCommandResponse>) {
-        this.doPost(`http://${this.ip}/common/reboot`, {}, (data, _response) => {
+        this.doPost(`${this.ip}/common/reboot`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) SetCommandResponse.parseResponse(dict, callback);
         });
     }
 
     public getACModelInfo(callback: DaikinResponseCb<ModelInfoResponse>) {
-        this.doGet(`http://${this.ip}/aircon/get_model_info`, {}, (data, _response) => {
+        this.doGet(`${this.ip}/aircon/get_model_info`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) ModelInfoResponse.parseResponse(dict, callback);
         });
     }
 
     public getACControlInfo(callback: DaikinResponseCb<ControlInfo>) {
-        this.doGet(`http://${this.ip}/aircon/get_control_info`, {}, (data, _response) => {
+        this.doGet(`${this.ip}/aircon/get_control_info`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) ControlInfo.parseResponse(dict, callback);
         });
@@ -231,7 +297,7 @@ export class DaikinACRequest {
     public setACControlInfo(obj: ControlInfo, callback: DaikinResponseCb<SetCommandResponse>) {
         try {
             const requestDict = obj.getRequestDict();
-            this.doPost(`http://${this.ip}/aircon/set_control_info`, requestDict, (data, _response) => {
+            this.doPost(`${this.ip}/aircon/set_control_info`, requestDict, (data, _response) => {
                 const dict = DaikinDataParser.processResponse(data, callback, requestDict);
                 if (dict !== null) SetCommandResponse.parseResponse(dict, callback);
             });
@@ -241,30 +307,30 @@ export class DaikinACRequest {
     }
 
     public getACSensorInfo(callback: DaikinResponseCb<SensorInfoResponse>) {
-        this.doGet(`http://${this.ip}/aircon/get_sensor_info`, {}, (data, _response) => {
+        this.doGet(`${this.ip}/aircon/get_sensor_info`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) SensorInfoResponse.parseResponse(dict, callback);
         });
     }
 
     public getACWeekPower(callback: DaikinResponseCb<WeekPowerResponse>) {
-        this.doGet(`http://${this.ip}/aircon/get_week_power`, {}, (data, _response) => {
+        this.doGet(`${this.ip}/aircon/get_week_power`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) WeekPowerResponse.parseResponse(dict, callback);
         });
     }
 
     public getACYearPower(callback: DaikinResponseCb<YearPowerResponse>) {
-        if (this.logger) this.logger(`Call GET http://${this.ip}/aircon/get_year_power`);
-        this.doGet(`http://${this.ip}/aircon/get_year_power`, {}, (data, _response) => {
+        if (this.logger) this.logger(`Call GET ${this.ip}/aircon/get_year_power`);
+        this.doGet(`${this.ip}/aircon/get_year_power`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) YearPowerResponse.parseResponse(dict, callback);
         });
     }
 
     public getACWeekPowerExtended(callback: DaikinResponseCb<WeekPowerExtendedResponse>) {
-        if (this.logger) this.logger(`Call GET http://${this.ip}/aircon/get_week_power_ex`);
-        this.doGet(`http://${this.ip}/aircon/get_week_power_ex`, {}, (data, _response) => {
+        if (this.logger) this.logger(`Call GET ${this.ip}/aircon/get_week_power_ex`);
+        this.doGet(`${this.ip}/aircon/get_week_power_ex`, {}, (data, _response) => {
             const dict = DaikinDataParser.processResponse(data, callback);
             if (dict !== null) WeekPowerExtendedResponse.parseResponse(dict, callback);
         });
