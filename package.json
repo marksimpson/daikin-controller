@@ -15,6 +15,7 @@
     "url": "https://github.com/Apollon77/daikin-controller"
   },
   "dependencies": {
+    "axios": "^1.6.8",
     "node-rest-client": "^3.1.1",
     "xmlbuilder": "^15.1.1"
   },
