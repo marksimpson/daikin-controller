@@ -21,6 +21,9 @@ type defaultCallback<T> = (err: Error | null, res: T | null) => void;
 type updateErrorCallback = (err: Error | null) => void;
 
 export class DaikinAC {
+    get name(): string {
+        return this._name;
+    }
     get currentACModelInfo(): ModelInfoResponse | null {
         return this._currentACModelInfo;
     }
@@ -56,6 +59,7 @@ export class DaikinAC {
     private _acDemandControlSupported: null | boolean = null;
 
     private _logger: null | Logger;
+    private _name: string;
     private _daikinRequest: DaikinACRequest;
     private _updateInterval: null | number = null;
     private _updateCallback: null | updateErrorCallback = null;
@@ -67,17 +71,13 @@ export class DaikinAC {
         options: DaikinACOptions,
         callback: defaultCallback<ModelInfoResponse>,
     ) {
+        this._name = typeof device === 'string' ? device : device.name;
+
         this._logger = null;
         if (options.logger) {
             const logger = options.logger;
             this._logger = (s) => {
-                let name;
-                if (typeof device === 'string') {
-                    name = device;
-                } else {
-                    name = device.name;
-                }
-                logger(name + ': ' + s);
+                logger(this._name + ': ' + s);
             };
         }
         this._daikinRequest = new DaikinACRequest(device, options);
