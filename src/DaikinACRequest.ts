@@ -82,9 +82,7 @@ export class DaikinACRequest {
             this.daikinUuid = 'e18ccc1d-0f56-44fa-8f24-438e1f528546'.replaceAll('-', '');
             // this.daikinUuid = crypto.randomUUID().replaceAll('-', '');
 
-            this.doGet(`${this.ip}/common/register_terminal`, { key: this.controllerKey }, (data, _res) => {
-                console.log(data);
-
+            this.doGet(`${this.ip}/common/register_terminal`, { key: this.controllerKey }, (_data, _res) => {
                 this._doGet(url, parameters, callback);
             });
         } else {
@@ -105,13 +103,13 @@ export class DaikinACRequest {
                 'Accept-Encoding': 'gzip, deflate',
             },
             requestConfig: {
-                timeout: 5000, //request timeout in milliseconds
+                timeout: 10000, //request timeout in milliseconds
                 noDelay: true, //Enable/disable the Nagle algorithm
                 keepAlive: false, //Enable/disable keep-alive functionalityidle socket.
                 //keepAliveDelay: 1000 //and optionally set the initial delay before the first keepalive probe is sent
             },
             responseConfig: {
-                timeout: 5000, //response timeout
+                timeout: 10000, //response timeout
             },
         };
 
