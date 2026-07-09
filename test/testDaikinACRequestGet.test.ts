@@ -54,6 +54,21 @@ describe('Test DaikinACTypes', () => {
         done();
     });
 
+    it('getRequestDict serialises NaN temperature targets as M', (done) => {
+        const info = new ControlInfo();
+        info.power = false;
+        info.mode = 6;
+        info.targetTemperature = NaN;
+        info.targetHumidity = 0;
+        info.targetTemperatureMode1 = NaN;
+        info.targetTemperatureB = NaN;
+        const res = info.getRequestDict();
+        expect(res.stemp).toEqual('M');
+        expect(res.dt1).toEqual('M');
+        expect(res.b_stemp).toEqual('M');
+        done();
+    });
+
     it('set_control_info Success', (done) => {
         const info = new ControlInfo();
         info.power = false;
