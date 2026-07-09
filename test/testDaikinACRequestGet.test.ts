@@ -131,6 +131,23 @@ describe('Test DaikinACTypes', () => {
         });
     });
 
+    it('get_sensor_info reports unavailable readings as undefined', (done) => {
+        const req = nock('http://127.0.0.1')
+            .get('/aircon/get_sensor_info')
+            .reply(200, 'ret=OK,htemp=-,hhum=-,otemp=10.0,err=0,cmpfreq=0');
+        const daikin = new DaikinACRequest('127.0.0.1', { useGetToPost: true });
+        daikin.getACSensorInfo((err, ret, daikinResponse) => {
+            expect(req.isDone()).toBeTruthy();
+            expect(err).toBeNull();
+            expect(ret).toEqual('OK');
+            expect(daikinResponse!.indoorTemperature).toBeUndefined();
+            expect(daikinResponse!.indoorHumidity).toBeUndefined();
+            expect(daikinResponse!.outdoorTemperature).toEqual(10);
+            expect(daikinResponse!.error).toEqual(0);
+            done();
+        });
+    });
+
     it('set_special_mode Error Adv', (done) => {
         const specialMode = new SetSpecialModeRequest(SpecialModeState.ON, SpecialModeKind.POWERFUL);
         const req = nock('http://127.0.0.1')

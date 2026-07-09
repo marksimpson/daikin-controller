@@ -229,7 +229,7 @@ describe('Test DaikinAC', function () {
                     expect(err).toBeNull();
                     expect(Object.keys(response!).length).toEqual(5);
                     expect(response!.indoorTemperature).toEqual(21.5);
-                    expect(response!.outdoorTemperature).toBeNaN();
+                    expect(response!.outdoorTemperature).toBeUndefined();
 
                     daikin.getACModelInfo(function (err, response) {
                         expect(err).toBeNull();
