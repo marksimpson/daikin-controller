@@ -146,6 +146,31 @@ describe('Test DaikinACTypes', () => {
         });
     });
 
+    it('callback throwing is not funnelled into the error path', (done) => {
+        const req = nock('http://127.0.0.1')
+            .get('/aircon/get_sensor_info')
+            .reply(200, 'ret=OK,htemp=21.5,hhum=50,otemp=10.0,err=0,cmpfreq=0');
+        const logged: string[] = [];
+        const daikin = new DaikinACRequest('127.0.0.1', {
+            useGetToPost: true,
+            logger: (s) => {
+                if (s) logged.push(s);
+            },
+        });
+        let calls = 0;
+        daikin.getACSensorInfo((err, _ret, _response) => {
+            calls++;
+            expect(err).toBeNull();
+            throw new Error('callback exploded');
+        });
+        setTimeout(() => {
+            expect(req.isDone()).toBeTruthy();
+            expect(calls).toEqual(1);
+            expect(logged.some((s) => s.includes('callback exploded'))).toBeTruthy();
+            done();
+        }, 100);
+    });
+
     it('get_sensor_info reports unavailable readings as undefined', (done) => {
         const req = nock('http://127.0.0.1')
             .get('/aircon/get_sensor_info')

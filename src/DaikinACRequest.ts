@@ -142,12 +142,20 @@ export class DaikinACRequest {
                 headers: data.headers,
                 timeout: data.requestConfig.timeout,
             })
-            .then((res) => {
-                callback(res.data, res);
-            })
-            .catch((e) => {
-                callback(e);
-            });
+            .then(
+                (res) => {
+                    // Exceptions thrown by the callback must not be routed back into the
+                    // callback as a communication error; that would invoke it a second time.
+                    try {
+                        callback(res.data, res);
+                    } catch (err) {
+                        if (this.logger) this.logger(`Exception in response callback: ${err}`);
+                    }
+                },
+                (e) => {
+                    callback(e);
+                },
+            );
 
         // const req = this.restClient.get(url, data, callback);
 
