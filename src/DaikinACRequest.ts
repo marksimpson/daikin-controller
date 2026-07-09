@@ -15,7 +15,7 @@ import { SetCommandResponse, SetSpecialModeRequest } from './models';
 import { SpecialModeKind } from './DaikinACTypes';
 import { DemandControl } from './models/DemandControl';
 import { DeviceInfo } from './DaikinManager';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { Agent } from 'https';
 import * as crypto from 'crypto';
 
@@ -53,6 +53,7 @@ export class DaikinACRequest {
     private daikinUuid?: string;
     private readonly ip: string;
     private restClient: any;
+    private readonly axiosClient: AxiosInstance;
 
     public constructor(device: string | DeviceInfo, options: DaikinACOptions) {
         if (typeof device === 'string') {
@@ -72,6 +73,15 @@ export class DaikinACRequest {
         }
 
         this.restClient = new RestClient({ connection: { rejectUnauthorized: false } });
+
+        this.axiosClient = axios.create({
+            httpsAgent: new Agent({
+                keepAlive: false,
+
+                rejectUnauthorized: false,
+                secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
+            }),
+        });
     }
 
     public addDefaultParameter(key: string, value: any) {
@@ -105,12 +115,6 @@ export class DaikinACRequest {
             },
             requestConfig: {
                 timeout: 10000, //request timeout in milliseconds
-                noDelay: true, //Enable/disable the Nagle algorithm
-                keepAlive: false, //Enable/disable keep-alive functionalityidle socket.
-                //keepAliveDelay: 1000 //and optionally set the initial delay before the first keepalive probe is sent
-            },
-            responseConfig: {
-                timeout: 10000, //response timeout
             },
         };
 
@@ -125,16 +129,7 @@ export class DaikinACRequest {
 
         if (this.logger) this.logger(`Call GET ${url} with ${JSON.stringify(reqParams)}`);
 
-        const client = axios.create({
-            httpsAgent: new Agent({
-                keepAlive: data.requestConfig.keepAlive,
-
-                rejectUnauthorized: false,
-                secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
-            }),
-        });
-
-        client
+        this.axiosClient
             .request({
                 method: 'GET',
                 url: url,
@@ -156,32 +151,6 @@ export class DaikinACRequest {
                     callback(e);
                 },
             );
-
-        // const req = this.restClient.get(url, data, callback);
-
-        // req.on('requestTimeout', (req: XMLHttpRequest) => {
-        //     if (this.logger) this.logger('request timeout');
-        //     req.abort();
-        //     callback(new Error(`Error while communicating with Daikin device: Timeout`));
-        // });
-
-        // req.on('responseTimeout', (_res: any) => {
-        //     if (this.logger) this.logger('response timeout');
-        // });
-
-        // req.on('error', (err: any) => {
-        //     let errMessage: string;
-        //     if (err.code) {
-        //         errMessage = err.code;
-        //     } else if (err.message) {
-        //         errMessage = err.message;
-        //     } else {
-        //         errMessage = err.toString();
-        //     }
-        //     err.message = `Error while communicating with Daikin device: ${errMessage}`;
-
-        //     callback(err);
-        // });
     }
 
     public doPost(url: string, parameters: { [key: string]: any }, callback: ResponseHandler) {
