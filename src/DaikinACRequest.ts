@@ -80,6 +80,9 @@ export class DaikinACRequest {
 
                 rejectUnauthorized: false,
                 secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
+                // The adapters sign their TLS 1.2 handshake with SHA-1, which
+                // OpenSSL in Node 22+ no longer offers by default.
+                sigalgs: 'rsa_pkcs1_sha256:rsa_pkcs1_sha1',
             }),
         });
     }
