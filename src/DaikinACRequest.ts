@@ -161,6 +161,9 @@ export class DaikinACRequest {
             this.doGet(url, parameters, callback);
             return;
         }
+        // Adapters that need HTTPS only accept the GET form above; the direct
+        // POST path always speaks plain HTTP.
+        url = `http://${url.replace('http://', '')}`;
         const reqParams = Object.assign({}, this.defaultParameters, parameters);
         const data = {
             data: reqParams,
