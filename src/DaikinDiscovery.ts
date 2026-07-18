@@ -1,8 +1,8 @@
 import { createSocket, Socket } from 'dgram';
 import { DeviceInfo } from './DaikinManager';
 
-// Change this to true to output debugging logs to the console
-const debug = true;
+// Set DAIKIN_DISCOVERY_DEBUG=true to output debugging logs to the console
+const debug = process.env.DAIKIN_DISCOVERY_DEBUG === 'true';
 
 export class DaikinDiscovery {
     private readonly listenAddress: string = '0.0.0.0';

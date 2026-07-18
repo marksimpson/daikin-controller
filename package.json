@@ -47,6 +47,7 @@
     "lint-fix-all": "eslint ./src/{*.ts,*.js} --fix --no-error-on-unmatched-pattern",
     "jest-coverage": "jest --coverage",
     "test": "npm run jest-coverage",
+    "test:integration": "jest --config jest.integration.config.js",
     "quickTestLocalNetwork": "ts-node QuickLocalTest/QuickTestLocalNetwork.ts",
     "build": "tsc",
     "release": "release-script",
