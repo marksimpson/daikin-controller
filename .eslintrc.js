@@ -14,6 +14,9 @@ module.exports = {
   rules: {
     'linebreak-style': 'off',
     '@typescript-eslint/no-inferrable-types': [0],
+    // The untyped node-rest-client and the public callback signatures force
+    // `any` in several places; warn rather than block until they are retyped.
+    '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': [
       'error',
       {
