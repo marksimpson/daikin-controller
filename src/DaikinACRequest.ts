@@ -93,8 +93,8 @@ export class DaikinACRequest {
 
     public doGet(url: string, parameters: RequestDict, callback: ResponseHandler) {
         if (this.useHttps && this.controllerKey && !this.daikinUuid) {
-            this.daikinUuid = 'e18ccc1d-0f56-44fa-8f24-438e1f528546'.replaceAll('-', '');
-            // this.daikinUuid = crypto.randomUUID().replaceAll('-', '');
+            this.daikinUuid = 'e18ccc1d-0f56-44fa-8f24-438e1f528546'.replace(/-/g, '');
+            // this.daikinUuid = crypto.randomUUID().replace(/-/g, '');
 
             this.doGet(`${this.ip}/common/register_terminal`, { key: this.controllerKey }, (_data, _res) => {
                 this._doGet(url, parameters, callback);
