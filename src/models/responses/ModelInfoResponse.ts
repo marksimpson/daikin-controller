@@ -10,6 +10,9 @@ export class ModelInfoResponse {
     public mid?: string;
     public sFanDirection?: number;
     public enScdltmr?: number;
+    // Which special modes (streamer, powerful, econo) the adapter exposes.
+    // Zero means none at all; absent means the adapter never said.
+    public enSpMode?: number;
 
     public static parseResponse(dict: ResponseDict, cb: DaikinResponseCb<ModelInfoResponse>): void {
         const result = new ModelInfoResponse();
@@ -20,6 +23,7 @@ export class ModelInfoResponse {
         result.mid = DaikinDataParser.resolveString(dict, 'mid');
         result.sFanDirection = DaikinDataParser.resolveInteger(dict, 's_fdir', FanDirection);
         result.enScdltmr = DaikinDataParser.resolveInteger(dict, 'en_scdltmr');
+        result.enSpMode = DaikinDataParser.resolveInteger(dict, 'en_spmode');
         cb(null, 'OK', result);
     }
 }

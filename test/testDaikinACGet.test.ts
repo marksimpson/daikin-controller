@@ -61,7 +61,7 @@ describe('Test DaikinAC', function () {
             expect(err).toBeNull();
             expect(Object.keys(daikin.currentCommonBasicInfo!).length).toEqual(25);
             expect(daikin.currentCommonBasicInfo!.groupName).toEqual('Kinder'); // %4b%69%6e%64%65%72
-            expect(Object.keys(daikin.currentACModelInfo!).length).toEqual(7);
+            expect(Object.keys(daikin.currentACModelInfo!).length).toEqual(8);
 
             let cnt = 0;
             daikin.setUpdate(1000, function (err) {
@@ -268,7 +268,7 @@ describe('Test DaikinAC', function () {
 
                     daikin.getACModelInfo(function (err, response) {
                         expect(err).toBeNull();
-                        expect(Object.keys(response!).length).toEqual(7);
+                        expect(Object.keys(response!).length).toEqual(8);
                         expect(response!.model).toEqual('NOTSUPPORT');
 
                         daikin.getACWeekPower(function (err, response) {
@@ -328,4 +328,58 @@ describe('Test DaikinAC', function () {
             });
         });
     }, 600000);
+
+    it('parses en_spmode from the model info', function (done) {
+        nock('http://127.0.0.1')
+            .get('/common/basic_info')
+            .reply(
+                200,
+                'ret=OK,type=aircon,reg=eu,dst=1,ver=2_6_0,pow=0,err=0,location=0,name=%4c%6f%75%6e%67%65,icon=0,method=home only,port=30050,id=,pw=,lpw_flag=1,adp_kind=2,pv=0,cpv=0,cpv_minor=00,led=0,en_setzone=1,mac=A408EACC91D4,adp_mode=run,en_hol=0,grp_name=%4b%69%6e%64%65%72,en_grp=1',
+            )
+            .get('/aircon/get_model_info?lpw=')
+            .reply(
+                200,
+                'ret=OK,model=1575,type=N,pv=3.40,cpv=3,cpv_minor=40,mid=NA,en_scdltmr=1,en_frate=1,en_fdir=1,s_fdir=3,en_spmode=5,en_ipw_sep=1',
+            );
+        const daikin = new DaikinAC('127.0.0.1', options, function (err) {
+            expect(err).toBeNull();
+            expect(daikin.currentACModelInfo!.enSpMode).toEqual(5);
+            done();
+        });
+    });
+
+    it('parses a zero en_spmode as zero, not as absent', function (done) {
+        nock('http://127.0.0.1')
+            .get('/common/basic_info')
+            .reply(
+                200,
+                'ret=OK,type=aircon,reg=eu,dst=1,ver=2_6_0,pow=0,err=0,location=0,name=%4b%69%74%63%68%65%6e,icon=0,method=home only,port=30050,id=,pw=,lpw_flag=1,adp_kind=2,pv=0,cpv=0,cpv_minor=00,led=0,en_setzone=1,mac=A408EACC91D5,adp_mode=run,en_hol=0,grp_name=%4b%69%6e%64%65%72,en_grp=1',
+            )
+            .get('/aircon/get_model_info?lpw=')
+            .reply(
+                200,
+                'ret=OK,model=1011,type=N,pv=3.30,cpv=3,cpv_minor=20,mid=NA,en_scdltmr=1,en_frate=1,en_fdir=1,s_fdir=3,en_spmode=0,en_ipw_sep=0',
+            );
+        const daikin = new DaikinAC('127.0.0.1', options, function (err) {
+            expect(err).toBeNull();
+            expect(daikin.currentACModelInfo!.enSpMode).toEqual(0);
+            done();
+        });
+    });
+
+    it('leaves en_spmode undefined when the adapter does not report it', function (done) {
+        nock('http://127.0.0.1')
+            .get('/common/basic_info')
+            .reply(
+                200,
+                'ret=OK,type=aircon,reg=eu,dst=1,ver=2_6_0,pow=0,err=0,location=0,name=%4f%6c%64,icon=0,method=home only,port=30050,id=,pw=,lpw_flag=1,adp_kind=2,pv=0,cpv=0,cpv_minor=00,led=0,en_setzone=1,mac=A408EACC91D6,adp_mode=run,en_hol=0,grp_name=%4b%69%6e%64%65%72,en_grp=1',
+            )
+            .get('/aircon/get_model_info?lpw=')
+            .reply(200, 'ret=OK,model=NOTSUPPORT,type=N,pv=0,cpv=0,mid=NA,s_fdir=1,en_scdltmr=1');
+        const daikin = new DaikinAC('127.0.0.1', options, function (err) {
+            expect(err).toBeNull();
+            expect(daikin.currentACModelInfo!.enSpMode).toBeUndefined();
+            done();
+        });
+    });
 });

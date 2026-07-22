@@ -61,7 +61,7 @@ describe('Test DaikinAC', () => {
             expect(daikin.currentCommonBasicInfo).not.toBeNull();
             expect(daikin.currentACModelInfo).not.toBeNull();
             expect(Object.keys(daikin.currentCommonBasicInfo as BasicInfoResponse).length).toEqual(25);
-            expect(Object.keys(daikin.currentACModelInfo as ModelInfoResponse).length).toEqual(7);
+            expect(Object.keys(daikin.currentACModelInfo as ModelInfoResponse).length).toEqual(8);
 
             let cnt = 0;
             daikin.setUpdate(1000, function (err) {
@@ -241,7 +241,7 @@ describe('Test DaikinAC', () => {
 
                     daikin.getACModelInfo(function (err, response) {
                         expect(err).toBeNull();
-                        expect(Object.keys(response!).length).toEqual(7);
+                        expect(Object.keys(response!).length).toEqual(8);
                         expect(response!.model).toEqual('NOTSUPPORT');
 
                         daikin.getACWeekPower(function (err, response) {
